@@ -1,0 +1,66 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Signing key. A profile-owner app cannot be updated with a different signature, so every
+// build should use the same key. The key is never committed to the repository:
+//   CI:    the workflow decodes the SIGNING_KEYSTORE_B64 secret to signing/release.p12
+//   local: put the keystore at signing/release.p12 yourself (the folder is git-ignored)
+// Password and alias default to 'gamecloner'; override with SIGNING_PASSWORD / SIGNING_KEY_ALIAS.
+// Without the file the build still works, signed with this machine's throw-away debug key.
+def fixedKeystore = rootProject.file('signing/release.p12')
+def fixedPassword = System.getenv('SIGNING_PASSWORD') ?: 'gamecloner'
+def fixedAlias = System.getenv('SIGNING_KEY_ALIAS') ?: 'gamecloner'
+def hasFixedKey = fixedKeystore.exists()
+
+if (!hasFixedKey) {
+    logger.warn('Game Cloner: signing/release.p12 not found. Using the debug key; '
+            + 'this APK will not install over builds signed with another key.')
+}
+
+android {
+    namespace 'app.gamecloner'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'app.gamecloner'
+        minSdk 31        // Android 12
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        if (hasFixedKey) {
+            fixed {
+                storeFile fixedKeystore
+                storeType 'pkcs12'
+                storePassword fixedPassword
+                keyAlias fixedAlias
+                keyPassword fixedPassword
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (hasFixedKey) {
+                signingConfig signingConfigs.fixed
+            }
+        }
+        release {
+            minifyEnabled false
+            signingConfig hasFixedKey ? signingConfigs.fixed : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

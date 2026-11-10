@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.software.managed_users" android:required="false" />
+    <uses-feature android:name="android.software.device_admin" android:required="false" />
+
+    <!-- Guards the cross-profile picker: only this app (same signature) may start it. -->
+    <permission
+        android:name="app.gamecloner.permission.BRIDGE"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="app.gamecloner.permission.BRIDGE" />
+
+    <!-- List every installed app (picker) and every app in the clone space (manager). -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- "Direct copy" clones go through a PackageInstaller session the user confirms. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- "Remove" opens the system uninstall dialog. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <!-- Launcher entry in both profiles; routes to setup, hand-over or the manager. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Runs inside the clone space (profile owner side). -->
+        <activity
+            android:name=".ManagerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:exported="false" />
+
+        <!-- Runs in the personal profile; the manager reaches it through Android's
+             cross-profile intent forwarder, so it must be exported and filter-matched. -->
+        <activity
+            android:name=".PickerActivity"
+            android:exported="true"
+            android:permission="app.gamecloner.permission.BRIDGE">
+            <intent-filter>
+                <action android:name="app.gamecloner.action.PICK_APP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Started by the system inside the new profile when provisioning succeeds. -->
+        <activity
+            android:name=".ProvisionedActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.app.action.PROVISIONING_SUCCESSFUL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".AdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".InstallResultReceiver"
+            android:exported="false" />
+    </application>
+</manifest>
