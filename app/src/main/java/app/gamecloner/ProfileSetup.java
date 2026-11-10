@@ -50,11 +50,13 @@ final class ProfileSetup {
         step("allow unknown sources", () ->
                 dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES));
 
-        // Lets the manager (clone space) open PickerActivity in the personal profile.
+        // Lets the manager (clone space) open PickerActivity in the personal profile:
+        // FLAG_PARENT_CAN_ACCESS_MANAGED = intents sent in the managed profile may be
+        // resolved by activities in the parent profile.
         step("link picker", () -> dpm.addCrossProfileIntentFilter(
                 admin,
                 new IntentFilter(Bridge.ACTION_PICK_APP),
-                DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED_PROFILE));
+                DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED));
 
         for (String packageName : STORE_PACKAGES) {
             enableSystemApp(context, packageName);
