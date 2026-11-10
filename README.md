@@ -94,6 +94,7 @@ and such an APK does not install over a build signed with a different key.
 
 ## Verification status
 
-The code is written against the documented behaviour of the APIs above. It has not been run on a device by its author.
-Things to confirm on your own phones are listed in the hand-over notes of the build; the main ones are provisioning on your OEM skin,
-the cross-profile picker, and one clone by each method.
+The project compiles and packages on GitHub Actions against the real Android SDK (compileSdk 35).
+It has not been run on a device by its author, so runtime behaviour is unconfirmed. Confirm on your own phones:
+work-profile creation on your OEM skin, the cross-profile picker, one clone by each method, and a real game start
+on the lowest and highest Android version you care about.

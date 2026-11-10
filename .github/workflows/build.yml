@@ -77,3 +77,8 @@ jobs:
             --title "Game Cloner build ${{ github.run_number }}" \
             --notes "Automated build of commit ${{ github.sha }}." \
             --target "${{ github.sha }}"
+
+      # Report only: prints Android Lint findings (API-level misuse and similar) to the log.
+      - name: Lint report
+        continue-on-error: true
+        run: ./gradlew --no-daemon :app:lintRelease

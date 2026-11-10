@@ -59,8 +59,10 @@ android {
         targetCompatibility JavaVersion.VERSION_11
     }
 
+    // Lint never blocks the build; CI runs it as a separate, report-only step.
     lint {
         abortOnError false
         checkReleaseBuilds false
+        textReport true
     }
 }
