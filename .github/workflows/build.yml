@@ -38,14 +38,24 @@ jobs:
       - name: Restore signing key
         env:
           SIGNING_KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: |
-          if [ -n "$SIGNING_KEYSTORE_B64" ]; then
-            mkdir -p signing
-            printf '%s' "$SIGNING_KEYSTORE_B64" | base64 --decode > signing/release.p12
-            echo "Signing with the fixed key from the repository secret."
-          else
+          if [ -z "$SIGNING_KEYSTORE_B64" ]; then
             echo "::warning::No SIGNING_KEYSTORE_B64 secret. This APK gets a throw-away signature and will not install over other builds."
+            exit 0
           fi
+          mkdir -p signing
+          # Pasting on a phone can add spaces or line breaks; strip them before decoding.
+          if ! printf '%s' "$SIGNING_KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > signing/release.p12; then
+            echo "::error::SIGNING_KEYSTORE_B64 is not valid base64."
+            exit 1
+          fi
+          # Fail here with a clear message instead of deep inside the Gradle signing task.
+          if ! keytool -list -keystore signing/release.p12 -storetype PKCS12 -storepass "${SIGNING_PASSWORD:-gamecloner}" > /dev/null 2>&1; then
+            echo "::error::SIGNING_KEYSTORE_B64 does not decode to a PKCS12 keystore that opens with the signing password."
+            exit 1
+          fi
+          echo "Signing with the fixed key from the repository secret."
 
       - name: Build release APK
         env:
