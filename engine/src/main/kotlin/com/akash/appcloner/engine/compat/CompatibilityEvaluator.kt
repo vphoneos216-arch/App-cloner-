@@ -60,7 +60,7 @@ object CompatibilityEvaluator {
                 severity = Severity.BLOCKER,
                 title = "No ABI in common with this device",
                 detail = "APK ships ${abi.apkAbis.joinToString()}; device supports " +
-                    "${abi.deviceAbis.joinToString()}.",
+                    "${abi.deviceOrder.joinToString()}.",
                 nextStep = "This build cannot run here in any container. Obtain a build that " +
                     "ships one of the device ABIs.",
             )
