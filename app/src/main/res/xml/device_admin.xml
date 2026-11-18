@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Minimal policy set. The managed-profile backend needs profile ownership to install an
+  existing package into the profile; it asks for no policy beyond that.
+-->
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-policies>
-        <!-- Needed for "Delete clone space" (DevicePolicyManager.wipeData on the profile). -->
-        <wipe-data />
-    </uses-policies>
+    <uses-policies />
 </device-admin>

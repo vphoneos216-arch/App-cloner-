@@ -1,70 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-feature android:name="android.software.managed_users" android:required="false" />
-    <uses-feature android:name="android.software.device_admin" android:required="false" />
-
-    <!-- Guards the cross-profile picker: only this app (same signature) may start it. -->
-    <permission
-        android:name="app.gamecloner.permission.BRIDGE"
-        android:protectionLevel="signature" />
-    <uses-permission android:name="app.gamecloner.permission.BRIDGE" />
-
-    <!-- List every installed app (picker) and every app in the clone space (manager). -->
+    <!--
+      Listing installed games is the app's core function, so the broad visibility permission is
+      required rather than convenient. Google Play restricts it; a sideloaded build is unaffected.
+    -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-    <!-- "Direct copy" clones go through a PackageInstaller session the user confirms. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- "Remove" opens the system uninstall dialog. -->
-    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <!-- Monitoring has to continue while a game is in the foreground, which means a service. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
+        android:name=".AppClonerApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
+        android:theme="@style/Theme.AppCloner">
 
-        <!-- Launcher entry in both profiles; routes to setup, hand-over or the manager. -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
+            android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Runs inside the clone space (profile owner side). -->
-        <activity
-            android:name=".ManagerActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
-            android:exported="false" />
-
-        <!-- Runs in the personal profile; the manager reaches it through Android's
-             cross-profile intent forwarder, so it must be exported and filter-matched. -->
-        <activity
-            android:name=".PickerActivity"
-            android:exported="true"
-            android:permission="app.gamecloner.permission.BRIDGE">
-            <intent-filter>
-                <action android:name="app.gamecloner.action.PICK_APP" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-
-        <!-- Started by the system inside the new profile when provisioning succeeds. -->
-        <activity
-            android:name=".ProvisionedActivity"
-            android:exported="true"
-            android:theme="@android:style/Theme.NoDisplay">
-            <intent-filter>
-                <action android:name="android.app.action.PROVISIONING_SUCCESSFUL" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-
+        <!--
+          Required for the managed-profile backend: provisioning makes this receiver's app the
+          profile owner, which is what allows installing an existing package into the profile.
+        -->
         <receiver
-            android:name=".AdminReceiver"
+            android:name=".CloneAdminReceiver"
             android:exported="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data
@@ -76,8 +48,14 @@
             </intent-filter>
         </receiver>
 
-        <receiver
-            android:name=".InstallResultReceiver"
-            android:exported="false" />
+        <service
+            android:name=".MonitorService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="performance_monitoring_of_a_user_selected_game_process" />
+        </service>
     </application>
+
 </manifest>

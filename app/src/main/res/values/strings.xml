@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Game Cloner</string>
+    <string name="app_name">App Cloner</string>
+    <string name="monitor_channel_name">Game monitoring</string>
+    <string name="monitor_channel_description">Shows that game performance sampling is running.</string>
+    <string name="monitor_notification_title">Monitoring %1$s</string>
 </resources>
