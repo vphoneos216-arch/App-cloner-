@@ -35,15 +35,11 @@ class CloneEngine(
             )
         }
 
-        // A managed-profile clone cannot be enumerated from this profile, so a stored record is
-        // the only evidence it exists. Other backends enumerate, so a missing entry is real.
-        val unseen = stored.filterNot { it.id in liveIds }.map { record ->
-            if (record.backend == CloneBackendKind.MANAGED_PROFILE) {
-                record
-            } else {
-                record.copy(state = CloneState.BROKEN)
-            }
-        }
+        // Every backend enumerates from the platform now, so a stored record that no backend
+        // can see is a clone that was removed behind this app's back, not a blind spot.
+        val unseen = stored
+            .filterNot { it.id in liveIds }
+            .map { it.copy(state = CloneState.BROKEN) }
 
         return (enriched + unseen).sortedBy { it.label.lowercase() }
     }

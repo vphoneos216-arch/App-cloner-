@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.akash.appcloner
 
 import android.Manifest
@@ -17,7 +19,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -32,16 +33,20 @@ import com.akash.appcloner.engine.clone.BackendAvailability
 import com.akash.appcloner.engine.clone.CloneBackendKind
 import com.akash.appcloner.engine.clone.CloneState
 import com.akash.appcloner.engine.perf.MonitorTarget
-import com.akash.appcloner.engine.policy.IntegrityPolicy
-import com.akash.appcloner.ui.theme.AppClonerTheme
 import com.akash.appcloner.ui.clones.CloneListScreen
 import com.akash.appcloner.ui.compat.CompatibilityScreen
 import com.akash.appcloner.ui.dashboard.GamingDashboardScreen
+import com.akash.appcloner.ui.logs.LogsScreen
+import com.akash.appcloner.ui.root.RootManagerScreen
+import com.akash.appcloner.ui.theme.AppClonerTheme
+import com.akash.appcloner.ui.theme.StatusColors
 
-private enum class Tab(val label: String) {
-    CLONES("Clones"),
-    DASHBOARD("Dashboard"),
-    COMPAT("Compat"),
+private enum class Tab(val label: String, val glyph: String) {
+    CLONES("Clones", "C"),
+    ROOT("Root", "R"),
+    DASHBOARD("Monitor", "M"),
+    COMPAT("Compat", "A"),
+    LOGS("Logs", "L"),
 }
 
 class MainActivity : ComponentActivity() {
@@ -50,9 +55,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val app = application as AppClonerApplication
         setContent {
-            AppClonerTheme {
-                AppClonerRoot(app)
-            }
+            AppClonerTheme { AppClonerRoot(app) }
         }
     }
 }
@@ -62,22 +65,21 @@ private fun AppClonerRoot(app: AppClonerApplication) {
     var tab by remember { mutableStateOf(Tab.CLONES) }
     val clonesState by app.clones.state.collectAsState()
 
-    LaunchedEffect(Unit) { app.clones.refresh() }
+    LaunchedEffect(Unit) {
+        app.clones.refresh()
+        app.root.refresh()
+    }
 
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* The monitoring notification is cosmetic; sampling continues either way. */ }
 
-    val provisioning = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { app.clones.refresh() }
-
-    val managedProfileSetup = clonesState.backendOptions
-        .firstOrNull { it.backend.kind == CloneBackendKind.MANAGED_PROFILE }
+    // Root is the gate for every clone operation, so a missing grant is surfaced on arrival
+    // rather than at the moment an operation fails.
+    val rootSetupNeeded = clonesState.backendOptions
+        .firstOrNull { it.backend.kind == CloneBackendKind.CLONE_PROFILE }
         ?.availability as? BackendAvailability.NeedsSetup
 
-    // Dashboard targets: every clone, plus the originals, so the two can be compared side by
-    // side. A clone recorded but missing from the device is left out - there is nothing to watch.
     val targets = remember(clonesState.clones, clonesState.installedGames) {
         val cloneTargets = clonesState.clones
             .filter { it.state != CloneState.BROKEN && it.state != CloneState.REMOVED }
@@ -90,12 +92,12 @@ private fun AppClonerRoot(app: AppClonerApplication) {
 
     Scaffold(
         topBar = {
-            // Plain header rather than TopAppBar: that component is still behind an
-            // experimental opt-in in Material3 and is not worth the churn here.
             Text(
-                "App Cloner - gaming",
+                "RootClone",
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 20.dp, bottom = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 20.dp, bottom = 8.dp),
             )
         },
         bottomBar = {
@@ -104,7 +106,7 @@ private fun AppClonerRoot(app: AppClonerApplication) {
                     NavigationBarItem(
                         selected = tab == candidate,
                         onClick = { tab = candidate },
-                        icon = { Text(candidate.label.take(1)) },
+                        icon = { Text(candidate.glyph) },
                         label = { Text(candidate.label) },
                     )
                 }
@@ -112,30 +114,28 @@ private fun AppClonerRoot(app: AppClonerApplication) {
         },
     ) { padding ->
         Column(Modifier.padding(padding)) {
-            if (managedProfileSetup != null && tab == Tab.CLONES) {
-                Card(Modifier.fillMaxWidth().padding(12.dp)) {
+            if (rootSetupNeeded != null && tab == Tab.CLONES) {
+                Card(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
                     Column(Modifier.padding(10.dp)) {
                         Text(
-                            "Work profile not set up",
+                            "Root not granted",
                             style = MaterialTheme.typography.titleSmall,
+                            color = StatusColors.warn,
                         )
                         Text(
-                            managedProfileSetup.reason,
+                            rootSetupNeeded.reason,
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Text(
-                            IntegrityPolicy.UI_EXPLANATION,
-                            style = MaterialTheme.typography.labelSmall,
+                            "Grant this app superuser in KernelSU, Magisk or APatch, then open " +
+                                "the Root tab to re-check.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = StatusColors.unknown,
                         )
-                        TextButton(
-                            onClick = {
-                                provisioning.launch(
-                                    app.graph.managedProfileBackend.provisioningIntent(),
-                                )
-                            },
-                        ) {
-                            Text("Create work profile")
-                        }
                     }
                 }
             }
@@ -148,6 +148,8 @@ private fun AppClonerRoot(app: AppClonerApplication) {
                         tab = Tab.COMPAT
                     },
                 )
+
+                Tab.ROOT -> RootManagerScreen(controller = app.root)
 
                 Tab.DASHBOARD -> GamingDashboardScreen(
                     controller = app.dashboard,
@@ -170,6 +172,8 @@ private fun AppClonerRoot(app: AppClonerApplication) {
                 )
 
                 Tab.COMPAT -> CompatibilityScreen(controller = app.compat)
+
+                Tab.LOGS -> LogsScreen()
             }
         }
     }

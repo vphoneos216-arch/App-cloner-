@@ -31,23 +31,6 @@
             </intent-filter>
         </activity>
 
-        <!--
-          Required for the managed-profile backend: provisioning makes this receiver's app the
-          profile owner, which is what allows installing an existing package into the profile.
-        -->
-        <receiver
-            android:name=".CloneAdminReceiver"
-            android:exported="true"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
-            </intent-filter>
-        </receiver>
-
         <service
             android:name=".MonitorService"
             android:exported="false"

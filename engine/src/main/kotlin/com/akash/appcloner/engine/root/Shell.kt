@@ -46,7 +46,11 @@ object Shell {
         } else {
             arrayOf("sh", "-c", command)
         }
-        return run(argv, timeoutSeconds)
+        val startedAt = System.currentTimeMillis()
+        val result = run(argv, timeoutSeconds)
+        // Recorded here rather than at each call site, so nothing privileged runs unlogged.
+        CommandLog.record(command, asRoot, result, System.currentTimeMillis() - startedAt)
+        return result
     }
 
     private fun run(argv: Array<String>, timeoutSeconds: Long): ShellResult {

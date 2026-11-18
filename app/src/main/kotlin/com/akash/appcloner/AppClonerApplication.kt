@@ -18,6 +18,8 @@ class AppClonerApplication : Application() {
         private set
     lateinit var compat: CompatController
         private set
+    lateinit var root: RootController
+        private set
 
     private val appScope = CoroutineScope(SupervisorJob())
 
@@ -27,6 +29,7 @@ class AppClonerApplication : Application() {
         dashboard = DashboardController(graph, appScope)
         clones = ClonesController(graph, appScope)
         compat = CompatController(graph, appScope)
+        root = RootController(graph, appScope)
         createMonitorChannel()
     }
 

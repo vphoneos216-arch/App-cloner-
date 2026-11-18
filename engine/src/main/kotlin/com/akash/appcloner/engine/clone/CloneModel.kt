@@ -2,8 +2,11 @@ package com.akash.appcloner.engine.clone
 
 /** How a clone is isolated from the original installation. */
 enum class CloneBackendKind {
-    /** A work profile: concurrent with the original, no root, one profile per device. */
-    MANAGED_PROFILE,
+    /**
+     * An AOSP clone profile (android.os.usertype.profile.CLONE): concurrent with the original,
+     * same package name and signing certificate, its own UID and data. Created with root.
+     */
+    CLONE_PROFILE,
 
     /** A secondary Android user: full isolation, root to create, not concurrent. */
     SECONDARY_USER,
@@ -46,7 +49,18 @@ sealed interface BackendAvailability {
     /** Usable only after a one-time setup step the user has to confirm. */
     data class NeedsSetup(val reason: String, val action: SetupAction) : BackendAvailability
 
-    enum class SetupAction { PROVISION_MANAGED_PROFILE, INSTALL_COMPANION_ROOT_MODULE, GRANT_ROOT }
+    enum class SetupAction {
+        /** Root has not been granted to this app yet. */
+        GRANT_ROOT,
+
+        /**
+         * The device allows only one clone profile and it is already in use, so another
+         * instance of the same package needs the per-parent limit raised.
+         */
+        RAISE_CLONE_PROFILE_LIMIT,
+
+        INSTALL_COMPANION_ROOT_MODULE,
+    }
 }
 
 enum class CloneState { CREATED, INSTALLED, READY, RUNNING, BROKEN, REMOVED }

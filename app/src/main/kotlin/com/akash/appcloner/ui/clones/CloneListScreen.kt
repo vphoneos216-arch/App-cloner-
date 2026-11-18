@@ -105,6 +105,8 @@ fun CloneListScreen(
             CloneCard(
                 clone = clone,
                 onLaunch = { controller.launch(clone) },
+                onStop = { controller.stop(clone) },
+                onBackup = { controller.backup(clone) },
                 onRemove = { controller.remove(clone) },
                 onRootRequest = { controller.requestRootAccess(clone, true) },
             )
@@ -225,6 +227,8 @@ private fun BackendCard(option: BackendOption) {
 private fun CloneCard(
     clone: CloneRecord,
     onLaunch: () -> Unit,
+    onStop: () -> Unit,
+    onBackup: () -> Unit,
     onRemove: () -> Unit,
     onRootRequest: () -> Unit,
 ) {
@@ -255,6 +259,10 @@ private fun CloneCard(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = onLaunch) { Text("Launch") }
+                OutlinedButton(onClick = onStop) { Text("Stop") }
+                OutlinedButton(onClick = onBackup) { Text("Backup") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = onRootRequest) { Text("Root") }
                 TextButton(onClick = onRemove) { Text("Remove") }
             }
