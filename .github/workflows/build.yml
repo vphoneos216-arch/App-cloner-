@@ -11,6 +11,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,6 +40,14 @@ jobs:
       - name: Assemble release APK (unsigned)
         run: gradle :app:assembleRelease --no-daemon --stacktrace
 
+      # Renamed so the file is identifiable once it is in a Downloads folder.
+      - name: Name the APKs
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk "dist/appcloner-gaming-debug-b${{ github.run_number }}.apk"
+          cp app/build/outputs/apk/release/*.apk "dist/appcloner-gaming-release-unsigned-b${{ github.run_number }}.apk" || true
+          ls -lh dist
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -51,6 +62,18 @@ jobs:
           name: appcloner-gaming-release-unsigned-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: warn
+
+      # A release asset is a direct .apk download; an artifact always arrives as a zip and
+      # needs a signed-in session. This is the link to install from on a phone.
+      - name: Publish the APKs to a release
+        if: success() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "b${{ github.run_number }}" dist/*.apk \
+            --title "Build ${{ github.run_number }}" \
+            --notes "Debug APK installs as-is. The release APK is unsigned; sign it first. Commit ${{ github.sha }}. Built by CI, not yet run on a device." \
+            --latest
 
       # Kept on failure too: this is what turns a red run into a fixable compiler error.
       - name: Upload reports
