@@ -5,6 +5,7 @@ import com.akash.appcloner.engine.clone.CloneRecord
 import com.akash.appcloner.engine.clone.CloneRequest
 import com.akash.appcloner.engine.clone.CloneResult
 import com.akash.appcloner.engine.clone.BackupResult
+import com.akash.appcloner.engine.root.RootPolicyResult
 import com.akash.appcloner.engine.compat.GameProfileRegistry
 import com.akash.appcloner.engine.compat.ResolvedGame
 import kotlinx.coroutines.CoroutineScope
@@ -122,12 +123,54 @@ class ClonesController(
         }
     }
 
+    /**
+     * Grants the clone's own uid superuser, writing where the detected manager keeps its policy
+     * and reading it back. The clone's uid is userId * 100000 + appId, which is a different
+     * entry from the original app's.
+     */
     fun requestRootAccess(clone: CloneRecord, allowed: Boolean) {
+        val userId = clone.androidUserId ?: run {
+            _state.update { it.copy(message = "That clone has no Android user id.") }
+            return
+        }
         scope.launch {
-            applyResult(
-                graph.cloneEngine.setRootAccess(clone, allowed),
-                "Root policy updated for ${clone.label}.",
-            )
+            _state.update { it.copy(busy = true, message = null) }
+            val uid = graph.cloneProfileBackend.verifyClone(clone.packageName, userId).uid
+            if (uid == null) {
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        message = "Could not read the clone's uid from the package manager, so " +
+                            "no policy was written.",
+                    )
+                }
+                return@launch
+            }
+            val result = if (allowed) {
+                graph.rootPolicyManager.grant(uid, clone.packageName)
+            } else {
+                graph.rootPolicyManager.revoke(uid, clone.packageName)
+            }
+            _state.update { current ->
+                when (result) {
+                    is RootPolicyResult.Applied -> current.copy(
+                        busy = false,
+                        log = result.log,
+                        message = "uid ${result.uid}: ${result.readBack}. ${result.note}",
+                    )
+
+                    is RootPolicyResult.NotSupported -> current.copy(
+                        busy = false,
+                        message = "${result.reason} ${result.manualInstruction}",
+                    )
+
+                    is RootPolicyResult.Failed -> current.copy(
+                        busy = false,
+                        log = result.log,
+                        message = result.message,
+                    )
+                }
+            }
         }
     }
 

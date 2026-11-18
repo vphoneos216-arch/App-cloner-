@@ -44,23 +44,76 @@ class CloneEngine(
         return (enriched + unseen).sortedBy { it.label.lowercase() }
     }
 
+    /**
+     * Creates a clone, trying every mechanism this device actually supports.
+     *
+     * Backends that fit the goal are tried first, then the rest as fallbacks. Committing to a
+     * single backend was a real defect: a ROM that advertises root but refuses the clone profile
+     * type made the engine fail outright instead of dropping to a mechanism that works. A
+     * fallback that does not meet the stated goal is used, but the result says so.
+     */
     suspend fun create(request: CloneRequest, goal: CloneGoal): CloneResult {
-        val option = selector.best(goal)
-            ?: return CloneResult.Failure(
-                message = "No backend on this device can satisfy ${goal.name}.",
-                nextStep = options(goal).joinToString("; ") { opt ->
-                    val why = when (val a = opt.availability) {
-                        is BackendAvailability.Unavailable -> a.reason
-                        is BackendAvailability.NeedsSetup -> a.reason
-                        BackendAvailability.Available -> opt.mismatchReason ?: "goal mismatch"
-                    }
-                    "${opt.backend.kind}: $why"
-                },
-            )
+        val all = options(goal)
+        val usable = all.filter { it.availability is BackendAvailability.Available }
+        val log = mutableListOf<String>()
 
-        return option.backend.createClone(request).also { result ->
-            if (result is CloneResult.Success) store.put(result.clone)
+        if (usable.isEmpty()) {
+            return CloneResult.Failure(
+                message = "No cloning mechanism is available on this device.",
+                nextStep = all.joinToString("  |  ") { option ->
+                    val why = when (val availability = option.availability) {
+                        is BackendAvailability.Unavailable ->
+                            availability.reason + (availability.remedy?.let { " $it" } ?: "")
+
+                        is BackendAvailability.NeedsSetup -> availability.reason
+                        BackendAvailability.Available -> "available"
+                    }
+                    "${option.backend.kind}: $why"
+                },
+                log = all.map { "${it.backend.kind}: ${it.availability}" },
+            )
         }
+
+        // Goal-fitting backends first; the rest are still tried, because a working clone beats
+        // no clone, and the caller is told which property was given up.
+        val ordered = usable.sortedByDescending { it.fitsGoal }
+        val failures = mutableListOf<String>()
+
+        for (option in ordered) {
+            log += "--- attempting ${option.backend.kind} ---"
+            when (val result = option.backend.createClone(request)) {
+                is CloneResult.Success -> {
+                    store.put(result.clone)
+                    val note = if (option.fitsGoal) {
+                        null
+                    } else {
+                        "Used ${option.backend.kind} as a fallback: ${option.mismatchReason}"
+                    }
+                    return CloneResult.Success(
+                        clone = result.clone,
+                        log = log + result.log + listOfNotNull(note),
+                    )
+                }
+
+                is CloneResult.Failure -> {
+                    failures += "${option.backend.kind}: ${result.message}"
+                    log += result.log
+                    result.nextStep?.let { log += it }
+                }
+
+                is CloneResult.Unsupported -> {
+                    failures += "${option.backend.kind}: ${result.message}"
+                    result.manualInstruction?.let { log += it }
+                }
+            }
+        }
+
+        return CloneResult.Failure(
+            message = "Every available mechanism refused. " + failures.joinToString("  |  "),
+            nextStep = "Run diagnostics from the Clones tab and send the report; it carries " +
+                "each command and its exact output.",
+            log = log,
+        )
     }
 
     suspend fun launch(clone: CloneRecord): CloneResult {

@@ -8,6 +8,12 @@ enum class CloneBackendKind {
      */
     CLONE_PROFILE,
 
+    /**
+     * An existing OEM dual-app container user (OnePlus Parallel Apps, Samsung Dual Messenger
+     * and similar). Reused rather than created, because the OEM owns its lifecycle.
+     */
+    OEM_DUAL_APP,
+
     /** A secondary Android user: full isolation, root to create, not concurrent. */
     SECONDARY_USER,
 

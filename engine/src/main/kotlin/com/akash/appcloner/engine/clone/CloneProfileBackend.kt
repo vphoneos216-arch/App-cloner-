@@ -110,6 +110,25 @@ class CloneProfileBackend(
                 action = BackendAvailability.SetupAction.GRANT_ROOT,
             )
         }
+
+        // Root alone is not enough: the ROM has to define the type. Reporting Available on the
+        // strength of root is what made the engine commit to this mechanism on a ROM that
+        // refuses it, and then stop rather than fall back.
+        val dump = Shell.exec("dumpsys user", asRoot = true, timeoutSeconds = 30).stdout
+        val types = DumpsysUserParser.supportedUserTypes(dump)
+        val existing = DumpsysUserParser.parse(dump).filter { it.isCloneProfile }
+
+        if (existing.isNotEmpty()) {
+            return@withContext BackendAvailability.Available
+        }
+        if (types.isNotEmpty() && UserTypes.CLONE_PROFILE !in types) {
+            return@withContext BackendAvailability.Unavailable(
+                reason = "This ROM does not define ${UserTypes.CLONE_PROFILE}. Types it does " +
+                    "define: ${types.sorted().joinToString()}",
+                remedy = "The engine falls back to an OEM dual-app profile where one exists, " +
+                    "and to a secondary user otherwise.",
+            )
+        }
         BackendAvailability.Available
     }
 

@@ -3,7 +3,9 @@ package com.akash.appcloner
 import android.content.Context
 import com.akash.appcloner.engine.clone.CloneEngine
 import com.akash.appcloner.engine.clone.CloneBackup
+import com.akash.appcloner.engine.clone.CloneDiagnostics
 import com.akash.appcloner.engine.clone.CloneProfileBackend
+import com.akash.appcloner.engine.clone.OemDualAppBackend
 import com.akash.appcloner.engine.clone.CloneStore
 import com.akash.appcloner.engine.clone.RootDataIsolationBackend
 import com.akash.appcloner.engine.clone.SecondaryUserBackend
@@ -12,6 +14,7 @@ import com.akash.appcloner.engine.compat.DeviceProfile
 import com.akash.appcloner.engine.compat.DeviceProfileReader
 import com.akash.appcloner.engine.perf.PerformanceMonitor
 import com.akash.appcloner.engine.process.ProcessManager
+import com.akash.appcloner.engine.root.RootPolicyManager
 import com.akash.appcloner.engine.root.RootProvider
 import com.akash.appcloner.engine.stability.CrashCollector
 import com.akash.appcloner.engine.stability.MemoryPressureWatcher
@@ -36,14 +39,32 @@ class EngineGraph(context: Context) {
     val memoryPressureWatcher = MemoryPressureWatcher(context)
     val nativeLoadProbe = NativeLoadProbe()
 
+    val rootPolicyManager = RootPolicyManager(rootProvider)
+
     val cloneProfileBackend = CloneProfileBackend(context, rootProvider, processManager)
+    val oemDualAppBackend = OemDualAppBackend(context, rootProvider, processManager)
+    val secondaryUserBackend = SecondaryUserBackend(context, rootProvider)
+    val rootDataIsolationBackend = RootDataIsolationBackend(rootProvider)
+
+    val allBackends = listOf(
+        cloneProfileBackend,
+        oemDualAppBackend,
+        secondaryUserBackend,
+        rootDataIsolationBackend,
+    )
+
+    val cloneDiagnostics = CloneDiagnostics(
+        context = context,
+        rootProvider = rootProvider,
+        cloneProfileBackend = cloneProfileBackend,
+        oemDualAppBackend = oemDualAppBackend,
+        backends = allBackends,
+        apkInspector = apkInspector,
+        rootPolicyManager = rootPolicyManager,
+    )
 
     val cloneEngine = CloneEngine(
-        backends = listOf(
-            cloneProfileBackend,
-            SecondaryUserBackend(context, rootProvider),
-            RootDataIsolationBackend(rootProvider),
-        ),
+        backends = allBackends,
         store = CloneStore(context),
     )
 }

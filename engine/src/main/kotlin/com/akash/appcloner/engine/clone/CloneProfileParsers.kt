@@ -86,6 +86,20 @@ object DumpsysUserParser {
     }
 
     /**
+     * Every `android.os.usertype.*` string the platform mentions in `dumpsys user`.
+     *
+     * `dumpsys user` prints the device's user-type table, so a type absent here is one this ROM
+     * does not define. Presence does not prove creation will succeed - a limit or a user
+     * restriction can still refuse it - but absence is conclusive, and that is what stops the
+     * engine from committing to a mechanism the ROM has never heard of.
+     */
+    fun supportedUserTypes(dumpsysOutput: String): Set<String> =
+        Regex("android\\.os\\.usertype\\.[\\w.]+")
+            .findAll(dumpsysOutput)
+            .map { it.value }
+            .toSet()
+
+    /**
      * Merges `pm list users` with `dumpsys user`. The first is reliable for the user list, the
      * second is the only source of the type, and on some builds one of the two is unavailable.
      */

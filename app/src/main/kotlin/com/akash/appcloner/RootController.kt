@@ -29,6 +29,9 @@ data class RootState(
     val nativeAbi: String? = null,
     val nativeUid: Int? = null,
     val checking: Boolean = false,
+    val diagnosticsRunning: Boolean = false,
+    val report: String? = null,
+    val reportPath: String? = null,
     val message: String? = null,
 ) {
     val cloneProfiles: List<TypedUser> get() = users.filter { it.isCloneProfile }
@@ -82,6 +85,25 @@ class RootController(
                     } else {
                         null
                     },
+                )
+            }
+        }
+    }
+
+    /**
+     * Runs the full capability probe and keeps the report, which is also written to a file so it
+     * can be shared. This is the thing to send when cloning fails on a device nobody else can see.
+     */
+    fun runDiagnostics(packageName: String? = null) {
+        scope.launch {
+            _state.update { it.copy(diagnosticsRunning = true, message = null) }
+            val report = runCatching { graph.cloneDiagnostics.probe(packageName) }
+                .getOrElse { "diagnostics threw: ${it.stackTraceToString()}" }
+            _state.update {
+                it.copy(
+                    diagnosticsRunning = false,
+                    report = report,
+                    reportPath = graph.cloneDiagnostics.reportFile().absolutePath,
                 )
             }
         }

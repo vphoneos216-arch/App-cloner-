@@ -126,6 +126,49 @@ fun RootManagerScreen(controller: RootController, modifier: Modifier = Modifier)
         items(state.users) { user -> UserCard(user) }
 
         item {
+            SectionTitle("Diagnostics")
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(10.dp)) {
+                    Text(
+                        "Runs the whole capability probe: which user types this ROM defines, " +
+                            "every user and its type, each backend's verdict with its reason, " +
+                            "and the full command log. Creates nothing.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = StatusColors.unknown,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { controller.runDiagnostics() },
+                        enabled = !state.diagnosticsRunning,
+                    ) {
+                        Text(if (state.diagnosticsRunning) "Probing..." else "Run diagnostics")
+                    }
+                    state.reportPath?.let {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Written to $it",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = StatusColors.unknown,
+                        )
+                    }
+                }
+            }
+        }
+
+        state.report?.let { report ->
+            item {
+                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text(
+                        report,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(10.dp),
+                    )
+                }
+            }
+        }
+
+        item {
             SectionTitle("Clone capacity")
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(10.dp)) {

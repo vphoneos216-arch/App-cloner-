@@ -90,6 +90,29 @@ class CloneProfileParsersTest {
     }
 
     @Test
+    fun `the user types a rom defines are read from dumpsys`() {
+        val types = DumpsysUserParser.supportedUserTypes(dumpsys)
+        assertTrue(UserTypes.CLONE_PROFILE in types)
+        assertTrue(UserTypes.MANAGED_PROFILE in types)
+        assertTrue(UserTypes.FULL_SYSTEM in types)
+    }
+
+    @Test
+    fun `a rom without the clone type reports it as absent`() {
+        val withoutClone = dumpsys.replace(UserTypes.CLONE_PROFILE, UserTypes.FULL_SECONDARY)
+        val types = DumpsysUserParser.supportedUserTypes(withoutClone)
+        assertFalse(UserTypes.CLONE_PROFILE in types)
+        assertTrue(UserTypes.FULL_SECONDARY in types)
+    }
+
+    @Test
+    fun `no user types parsed is distinct from the clone type being absent`() {
+        // An unparseable dump must not read as "the ROM lacks the type", which is why the
+        // backend only treats a non-empty type set as evidence.
+        assertTrue(DumpsysUserParser.supportedUserTypes("totally different output").isEmpty())
+    }
+
+    @Test
     fun `hitting the per-parent limit is classified as a limit, not a generic failure`() {
         val output = "Error: android.os.ServiceSpecificException: Cannot add more profiles of " +
             "type android.os.usertype.profile.CLONE for user 0 (code 6)\n" +
