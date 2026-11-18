@@ -64,14 +64,29 @@ class CloneProfileParsersTest {
     }
 
     @Test
-    fun `merge keeps the user list and adds types from dumpsys`() {
+    fun `merge unions both sources and takes types from dumpsys`() {
         val listed = PmOutputParser.parseUserList(
             "Users:\n\tUserInfo{0:Owner:c13} running\n\tUserInfo{11:AppCloneX:1010} running",
         )
         val merged = DumpsysUserParser.merge(listed, DumpsysUserParser.parse(dumpsys))
-        assertEquals(2, merged.size)
+
+        // The union, not the intersection: user 12 appears only in dumpsys here, and dropping a
+        // user that exists would be worse than carrying one the other source missed.
+        assertEquals(3, merged.size)
         assertEquals(UserTypes.CLONE_PROFILE, merged.single { it.id == 11 }.type)
         assertTrue(merged.single { it.id == 11 }.running)
+        assertEquals(UserTypes.MANAGED_PROFILE, merged.single { it.id == 12 }.type)
+    }
+
+    @Test
+    fun `merge keeps a user that dumpsys could not type`() {
+        val listed = PmOutputParser.parseUserList(
+            "Users:\n\tUserInfo{0:Owner:c13} running\n\tUserInfo{999:Parallel Apps:4000030}",
+        )
+        val merged = DumpsysUserParser.merge(listed, emptyList())
+        assertEquals(2, merged.size)
+        assertNull(merged.single { it.id == 999 }.type)
+        assertTrue(merged.single { it.id == 999 }.isOemDualAppCandidate)
     }
 
     @Test
